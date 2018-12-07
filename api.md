@@ -1,0 +1,514 @@
+# API
+
+## C/C++ API
+
+C API следует практикам, используемым в драйверах других популярных СУБД.
+
+Типовая сессия работы с СУБД имеет следующий сценарий:
+
+* соединение с сервером
+* запрос на сервер
+* получение ответа
+* отсоединение от сервера
+
+При успешном соединении с сервером в вызывающий контекст возвращается дескриптор соединения, однозначно идентифицирующий клиентскую сессию. Этот дескриптор в дальнейшем используется во всех вызовах API.
+
+При использовании API следует избегать использования «сырых» типов и числовых значений, не обернутых в константы и typedef’ы. На различных платформах определяемые в C API значения констант и макросов, а также нижележащих типов могут отличаться. Кроме того, они могут изменяться с изменением версий API.
+
+### nb\_connect
+
+```csharp
+NB_HANDLE nb_connect (
+    const char * host,
+    int sockport,
+    const char * user,
+    const char * password
+);
+```
+
+Предпринимает попытку соединения с сервером NitrosBase.
+
+Параметры:
+
+* host — имя узла сервера NitrosBase
+* sockport — TCP-порт сервера NitrosBase
+* user — пользователь сервера NitrosBase
+* password — пароль пользователя сервера NitrosBase
+
+Возвращаемое значение:
+
+* В случае успеха — дескриптор соединения
+* В случае неудачи — NB\_INVALID\_HANDLE
+
+В настоящее время NitrosBase не поддерживает аутентификацию. Параметры user, password зарезервированы — можно передавать любые значения, в том числе NULL.
+
+### nb\_disconnect
+
+```csharp
+NB_ERROR_T nb_disconnect (
+    NB_HANDLE connection
+);
+```
+
+Завершает соединение с сервером NitrosBase.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+
+Возвращаемое значение:
+
+* NB\_SUCCESS в случае успеха
+* код ошибки в случае неудачи
+
+### nb\_setoption
+
+```csharp
+void nb_setoption (
+    NB_HANDLE connection,
+    NB_CONN_OPTIONS option,
+    int value
+);
+```
+
+Используется для настройки параметров соединения с сервером.
+
+Параметры функции:
+
+* connection — дескриптор соединения
+* option — параметр соединения, который следует настроить
+* value — новое значение параметра соединения: булев параметр 0 или 1 \(параметров других типов в текущей версии драйвера и СУБД нет\).
+
+NB\_CONN\_OPTIONS — перечисление, которое содержит следующие значения:
+
+* NB\_OPT\_STREAMED\_RESULT — сервер отдает ответ, не дожидаясь получения полного результирующего набора \(работает нестабильно\). В этом режиме функция NBAffectedRows\(\) недоступна: всегда возвращает 0 и выставляет errno
+* NB\_OPT\_ERROR\_EXCEPTION — ошибка генерирует исключение
+* NB\_OPT\_DATETIME\_MICROSECONDS — получение значений типа дата-время с точностью до микросекунды \(1\), или с точностью до миллисекунды \(0\).
+
+### nb\_errno
+
+```csharp
+NB_ERROR_T nb_errno (
+    NB_HANDLE connection
+);
+```
+
+Возвращает код последней ошибки, ассоциированной с соединением.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+
+Возвращаемое значение:
+
+* NB\_SUCCESS — успех
+* NB\_ERROR\_UNKNOWN = \(NB\_ERROR \| 0\) —  общая ошибка
+* NB\_ERROR\_NOT\_IMPLEMENTED = \(NB\_ERROR \| 1\) — функциональность не реализована
+* NB\_ERROR\_UNEXPECTED = \(NB\_ERROR \| 2\) — неожиданный результат; при выполнении функции возникло непредусмотренное состояние
+* NB\_ERROR\_ARGUMENTS = \(NB\_ERROR \| 3\) — некорректное сочетание значений аргументов функции
+* NB\_ERROR\_TIMEOUT = \(NB\_ERROR \| 4\) — таймаут при выполнении функции
+* NB\_ERROR\_NO\_DATA = \(NB\_ERROR \| 5\) — нет данных при ответе на запрос
+
+### nb\_err\_text
+
+```csharp
+const char * nb_err_text (
+    NB_HANDLE connection
+);
+```
+
+Возвращает текст ошибки, ассоциированной с соединением.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+
+Возвращаемое значение — текст ошибки.
+
+### nb\_execute\_sql
+
+```csharp
+NB_ERROR_T nb_execute_sql (
+    NB_HANDLE connection,
+    const char * query,
+    size_t length
+);
+```
+
+Выполняет SQL-запрос на сервере.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+* query — текст запроса
+* length — длина текста запроса
+
+Возвращаемое значение:
+
+* NB\_SUCCESS в случае успеха
+* Код ошибки в случае неудачи.
+
+Несмотря на название, функция может выполнять не только SQL-запросы, но также, к примеру, запросы на SPARQL и других поддерживаемых сервером языках запросов.
+
+Параметр length используется в случае, если в тексте запроса встречаются бинарные данные \(к примеру, символ \0\).
+
+### nb\_fetch\_row
+
+```csharp
+NB_ERROR_T nb_fetch_row (
+    NB_HANDLE connection
+);
+```
+
+Получение следующей записи из результирующего набора данных, который сервер вернул в ответ на запрос.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+
+Возвращаемое значение:
+
+* NB\_SUCCESS в случае удачи
+* Код ошибки в случае неуспеха.
+
+### nb\_field\_count
+
+```csharp
+int nb_field_count (
+    NB_HANDLE connection
+);
+```
+
+Возвращает число полей в последней полученной с помощью nb\_fetch\_row записи.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+
+Возвращаемое значение:
+
+* Число полей в случае успеха
+* -1 в случае неудачи
+
+Число полей в результирующем наборе — не константная величина, и может отличаться от записи к записи. В графовой модели данных у различных узлов графа число полей может отличаться.
+
+### nb\_field\_name
+
+```csharp
+NB_ERROR_T nb_field_name (
+    NB_HANDLE connection,
+    int fieldnum, NBValue * name
+);
+```
+
+Возвращает имя поля в записи, полученной последним вызовом nb\_fetch\_row.
+
+Параметры:
+
+* connection — дескриптор соединения с сервером
+* fieldnum — номер поля, начиная с 0
+* name — указатель на структуру NBValue, в которую будет передан результат
+
+Структура NBValue определена следующим образом:
+
+```csharp
+struct NBValue {
+ NB_DATA_TYPE type;
+ union {
+     int intv;
+     long long int64v;
+     double dbl;
+     struct {
+         char *str;
+         int len;
+     };
+ };
+ bool null;
+};
+```
+
+Возвращаемое значение:
+
+* При удаче возвращает NB\_SUCCESS и заполняет структуру NBValue, на которую указывает указатель name.
+* При неудаче возвращает код ошибки.
+
+### nb\_field\_type
+
+```csharp
+NB_DATA_TYPE nb_field_type ( NB_HANDLE connection, int fieldnum );
+```
+
+Возвращает тип поля в записи, полученной последним вызовом nb\_fetch\_row.
+
+Параметры
+
+* connection — дескриптор соединения с сервером
+* fieldnum — номер поля, начиная с 0
+
+Возвращаемое значение — одно из следующих:
+
+```csharp
+enum NB_DATA_TYPE {
+ NB_DATA_NONE,
+ NB_DATA_STRING,
+ NB_DATA_INT,
+ NB_DATA_INT64,
+ NB_DATA_DOUBLE,
+ NB_DATA_DATETIME,
+ NB_DATA_BOOL,
+};
+```
+
+Значение NB\_DATA\_NONE возвращается в случае ошибки.
+
+### nb\_field\_value
+
+```csharp
+NB_ERROR_T nb_field_value (
+    NB_HANDLE connection,
+    int fieldnum,
+    NBValue * v );
+```
+
+Возвращает значение поля в записи, полученной последним вызовом nb\_fetch\_row.
+
+Параметры
+
+* connection — дескриптор соединения с сервером
+* fieldnum — номер поля, начиная с 0
+* v — указатель на структуру NBValue, в которую будет передан результат \(см. описание функции nb\_field\_name\)
+
+Возвращаемое значение:
+
+* При удаче возвращает NB\_SUCCESS и заполняет структуру NBValue, на которую указывает указатель v.
+* При неудаче возвращает код ошибки.
+
+### Создание клиентского приложения
+
+При создании собственного приложения в Microsoft Visual Studio следует настроить каталоги библиотек и заголовочных файлов:
+
+* каталог nitrosbase/include необходимо добавить в список каталогов заголовочных файлов \(Свойства проекта / каталоги VC++ / каталоги включения\)
+* каталоги nitrosbase/lib и nitrosbase/bin необходимо добавить в список каталогов библиотек \(Свойства проекта / каталоги VC++ / каталоги библиотек\)
+
+Возможны два варианта компоновки с клиентской библиотекой:
+
+* использование препроцессора  \#pragma comment\(lib, "nbclient.lib"\) 
+* добавление библиотеки nbclient.lib в список дополнительных библиотек   \(для MS Visual Studio: Свойства проекта / компоновщик / ввод / дополнительные зависимости\)
+
+## C\# API
+
+Подключение к СУБД NitrosBase из C\# производится через драйвер ADO.Net с названием Nitros.Net. Он включает в себя две библиотеки: Nitros.Net.Win.dll и nbclient.dll, и реализует подмножество интерфейсов, стандартных для ADO.Net:
+
+* IDbConnection
+* IDbTransaction
+* IDbCommand
+* IDataReader
+* IDbDataParameter
+* IDataParameterCollection
+
+### IDbConnection: NitrosBaseConnection
+
+Интерфейс IDbConnection реализован в классе NitrosBaseConnection.
+
+Формат строки соединения \(connection string\):
+
+data source='dbserver';initial catalog='dbname'; userid='username';password='password';
+
+Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idbconnection?view=netframework-4.7.2).
+
+### IDbTransaction: NitrosBaseTransaction
+
+Интерфейс IDbTransaction реализован в классе NitrosBaseTransaction.
+
+Транзакции в СУБД NitrosBase в настоящее время не поддерживаются.
+
+Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idbtransaction?view=netframework-4.7.2).
+
+### IDbCommand: NitrosBaseCommand
+
+Интерфейс IDbCommand реализован в классе NitrosBaseCommand.
+
+* Метод ExecuteNonQuery всегда возвращает 0, поскольку СУБД не поддерживает получение числа измененных запросом строк.
+* Метод Cancel ничего не делает, поскольку соответствующий метод отсутствует в API СУБД.
+* Метод Prepare производит фактическую подстановку значений параметров в запрос на стороне клиента.
+
+Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idbcommand?view=netframework-4.7.2).
+
+### IDataReader: NitrosBaseDataReader
+
+Интерфейс IDataReader реализован в классе NitrosBaseDataReader.
+
+Не поддерживаются \(выбрасывают NotImplementedException\) следующие методы:
+
+* GetBoolean
+* GetByte
+* GetBytes
+* GetChars
+
+Свойство RecordsAffected всегда возвращает -1, поскольку СУБД не поддерживает определение числа затронутых записей.
+
+Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idatareader?view=netframework-4.7.2).
+
+### IDbDataParameter: NitrosBaseDataParameter
+
+Интерфейс IDbDataParameter реализован в классе NitrosBaseDataParameter.
+
+Свойства Scale, Precision, Size, ParameterDirection не поддерживаются или поддерживаются частично:
+
+* Precision, Scale возвращают 0, при присвоении значения выбрасывают NotImplementedException.
+* Size всегда выбрасывает NotImplementedException.
+* ParameterDirection возвращает InputDirection, при присвоении значения выбрасывает NotImplementedException.
+
+Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idbdataparameter?view=netframework-4.7.2).
+
+### IDataParameterCollection: NitrosBaseDataParameterCollection
+
+IDataParameterCollection реализован в NitrosBaseDataParameterCollection.Справка по свойствам и методам интерфейса приведена в [документации Microsoft](https://docs.microsoft.com/en-us/dotnet/api/system.data.idataparametercollection?view=netframework-4.7.2).
+
+## ODBC
+
+Драйвер ODBC поддерживает базовые возможности ODBC в семантике вызовов ODBC 3.0 в пределах функциональности самой СУБД.
+
+Уровень реализации функциональности — ODBC Core.
+
+Примеры использования драйвера находятся в папке examples дистрибутива.
+
+### Поддерживаемая функциональность
+
+Функции управления соединением:
+
+* SQLDriverConnect
+* SQLDisconnect
+
+Функции аллокации:
+
+* SQLAllocHandle
+* SQLFreeHandle
+* SQLAllocEnv
+* SQLFreeEnv
+* SQLAllocConnect
+* SQLFreeConnect
+* SQLAllocStmt
+* SQLFreeStmt
+* SQLAllocDesc
+* SQLFreeDesc
+
+Функции выборки данных:
+
+* SQLPrepare
+* SQLExecute
+* SQLExecDirect
+* SQLGetData
+* SQLFetch
+* SQLNumResultCols
+* SQLRowCount
+* SQLDescribeCol
+* SQLNativeSql
+
+Функции диагностики
+
+* SQLGetDiagRec
+* SQLGetDiagField
+* SQLError
+
+### Неподдерживаемая функциональность
+
+В версии драйвера 1.0 не поддерживается следующая функциональность:
+
+* [скалярные функции ODBC](https://docs.microsoft.com/en-us/sql/t-sql/functions/odbc-scalar-functions-transact-sql?view=sql-server-2017),
+* параметризованные запросы
+
+Также следующие функции реализованы лишь как «заглушки», при их вызове возвращается ошибка “Не реализовано”.
+
+Функции транзакций
+
+* SQLEndTran
+* SQLTransact
+
+Функции атрибутов
+
+* SQLSetConnectAttr
+* SQLGetConnectAttr
+* SQLGetStmtAttr
+* SQLSetStmtAttr
+* SQLSetEnvAttr
+
+Функции параметров
+
+* SQLBindParameter
+* SQLPutData
+* SQLParamData
+* SQLNumParams
+
+Функции курсоров
+
+* SQLCloseCursor
+* SQLGetCursorName
+* SQLSetCursorName
+
+### Нестандартная функциональность
+
+Ниже приведены замечания к реализации в драйвере NitrosBase отдельных функций.
+
+### SQLDriverConnect
+
+Реализован только режим соединения SQL\_DRIVER\_NOPROMPT. Попытка создать соединение в другом режиме вызовет ошибку IM001 not implemented.
+
+Имена атрибутов для строки соединения:
+
+* DRIVER — имя драйвера, должно быть "NitrosBase Driver";
+* SERVER — имя или адрес сервера БД;
+* PORT — TCP-порт сервера БД. Необязателен, по умолчанию 3020.
+* UID — имя пользователя БД;
+* PWD — пароль пользователя БД.
+
+### SQLGetDiagField
+
+Реализованы следующие идентификационные коды \(параметр DiagIdentifier\):
+
+* SQL\_DIAG\_NATIVE
+* SQL\_DIAG\_MESSAGE\_TEXT
+* SQL\_DIAG\_SQLSTATE
+
+Вызов функции с иными номерами кодов вернет статус SQL\_NO\_DATA.
+
+### SQLGetDiagRec
+
+При обработке ошибок сохраняется лишь одна \(последняя\) запись об ошибке. Попытка вызвать функцию с значением параметра RecNumber, отличающимся от единицы, приведет к ошибке.
+
+### SQLPrepare
+
+Производит непосредственное выполнение запроса, так как в текущей версии драйвера и СУБД параметризованные запросы не поддерживаются.
+
+### SQLFetch
+
+В текущей версии драйвера окончание данных в результирующем наборе приводит к возврату статуса SQL\_ERROR.
+
+### SQLNumResultCols
+
+Вызов функции необходимо делать после каждого вызова SQLFetch — ввиду того, что в графовой модели данных.число полей является переменной величиной.
+
+### SQLRowCount
+
+Название функции зарезервировано, но реализация отсутствует. Невозможно получить количество записей в ответе до окончания итерации по всем записям. Это связано со спецификой реализацией самой СУБД.
+
+### SQLNativeSql
+
+Название функции зарезервировано, однако реализация отсутствует.  
+Метаязык ODBC \(функции ODBC и пр.\) не поддерживается текущей версией драйвера.
+
+## Драйвер SSRS
+
+Драйвер Microsoft Reporting Services позволяет строить отчеты на основе данных, хранящихся в NitrosBase. Регистрация драйвера описана [на сайте Microsoft](https://docs.microsoft.com/en-us/sql/reporting-services/report-data/register-a-standard-net-framework-data-provider-ssrs?view=sql-server-2017).
+
+При регистрации в RSReportDesigner.config:
+
+* для Visual Studio следует использовать 32-разрядную сборку \(nbclient32.dll, Nitros.Net.Win.dll\)
+* обе библиотеки \(nbclient32.dll, Nitros.Net.Win\) нужно скопировать во все указанные в инструкции каталоги
+* теги для RSReportDesigner.config:
+
+&lt;Extension Name="NB"  
+Type="NitrosData.Nitros.Net.NitrosBaseConnectionReporting,Nitros.Net.Win"/&gt;&lt;Extension Name="NB"  
+Type="Microsoft.ReportingServices.QueryDesigners.SMQLQueryDesigner,  
+Microsoft. ReportingServices.QueryDesigners.Extensions"/&gt;
+
