@@ -15,4 +15,4 @@ description: Сверхбыстрая мультимодельная СУБД
 
 После скачивания архива посмотрите следующий документ [Установка и администрирование](ustanovka-i-administrirovanie.md), разделы [Установка](ustanovka-i-administrirovanie.md#ustanovka) и [Подготовка демонстрационной базы данных](ustanovka-i-administrirovanie.md#podgotovka-demonstracionnoi-bd)  
 
-
+редактор в github
