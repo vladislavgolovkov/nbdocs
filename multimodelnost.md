@@ -25,7 +25,7 @@ NitrosBase — мультимодельная СУБД, поддерживающ
 
 Запрос на SPARQL, возвращающий модель автомобиля, год его производства и имя владельца, выглядит следующим образом:
 
-```text
+```sparql
 SELECT * {
   [] type car ;
      model ?model ;
@@ -36,7 +36,7 @@ SELECT * {
 
 Язык Graph-it синтаксически схож с Gremlin:
 
-```text
+```cpp
 g().v(car)
    .in(type)
    .get(model, year)
